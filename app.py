@@ -13,6 +13,7 @@ from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import VideoFileClip
 from RedDownloader import RedDownloader
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
@@ -39,6 +40,7 @@ time.sleep(8)
 print('Running bot now, get ready and login manually...')
 time.sleep(4)
 options = webdriver.ChromeOptions()
+options.add_argument('--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) CriOS/56.0.2924.75 Mobile/14E5239e Safari/602.1')
 bot = webdriver.Chrome(options=options,  executable_path=CM().install())
 bot.set_window_size(1680, 900)
 bot.get('https://www.tiktok.com/login')
@@ -46,7 +48,7 @@ ActionChains(bot).key_down(Keys.CONTROL).send_keys(
     '-').key_up(Keys.CONTROL).perform()
 ActionChains(bot).key_down(Keys.CONTROL).send_keys(
     '-').key_up(Keys.CONTROL).perform()
-print('Waiting 50s for manual login...')
+print('Waiting for manual login...')
 time.sleep(50)
 bot.get('https://www.tiktok.com/upload/?lang=it')
 time.sleep(3)
