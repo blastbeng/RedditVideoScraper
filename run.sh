@@ -1,2 +1,2 @@
 #/bin/sh
-/usr/bin/python3.8 app.py
+/usr/bin/python3 app.py

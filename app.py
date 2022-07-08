@@ -1,8 +1,6 @@
 import praw
 import os
 import time
-import random
-import requests
 import sqlite3
 from pathlib import Path
 from os.path import join, dirname
@@ -21,6 +19,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager as CM
+from simple_youtube_api.Channel import Channel
+from simple_youtube_api.LocalVideo import LocalVideo
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -30,28 +30,32 @@ API_SECRET = os.environ.get("API_SECRET")
 TMP_DIR = os.environ.get("TMP_DIR")
 DB_DIR = os.getcwd()+"/"+os.environ.get("DB_DIR")
 SUBREDDITS = os.environ.get("SUBREDDITS").split(",")
+TIKTOK_UPLOAD = False
+if os.environ.get("TIKTOK_UPLOAD") == 'True':
+    TIKTOP_UPLOAD = False;
 
+bot = None
 
-        
-print('=====================================================================================================')
-print('Heyy, you have to login manully on tiktok, so the bot will wait you 1 minute for loging in manually!')
-print('=====================================================================================================')
-time.sleep(8)
-print('Running bot now, get ready and login manually...')
-time.sleep(4)
-options = webdriver.ChromeOptions()
-options.add_argument('--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) CriOS/56.0.2924.75 Mobile/14E5239e Safari/602.1')
-bot = webdriver.Chrome(options=options,  executable_path=CM().install())
-bot.set_window_size(1680, 900)
-bot.get('https://www.tiktok.com/login')
-ActionChains(bot).key_down(Keys.CONTROL).send_keys(
-    '-').key_up(Keys.CONTROL).perform()
-ActionChains(bot).key_down(Keys.CONTROL).send_keys(
-    '-').key_up(Keys.CONTROL).perform()
-print('Waiting for manual login...')
-time.sleep(50)
-bot.get('https://www.tiktok.com/upload/?lang=it')
-time.sleep(3)
+def tiktok_login():
+    print('=====================================================================================================')
+    print('Heyy, you have to login manully on tiktok, so the bot will wait you 1 minute for loging in manually!')
+    print('=====================================================================================================')
+    time.sleep(8)
+    print('Running bot now, get ready and login manually...')
+    time.sleep(4)
+    options = webdriver.ChromeOptions()
+    options.add_argument('--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 10_3 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) CriOS/56.0.2924.75 Mobile/14E5239e Safari/602.1')
+    bot = webdriver.Chrome(options=options,  executable_path=CM().install())
+    bot.set_window_size(1680, 900)
+    bot.get('https://www.tiktok.com/login')
+    ActionChains(bot).key_down(Keys.CONTROL).send_keys(
+        '-').key_up(Keys.CONTROL).perform()
+    ActionChains(bot).key_down(Keys.CONTROL).send_keys(
+        '-').key_up(Keys.CONTROL).perform()
+    print('Waiting for manual login...')
+    time.sleep(50)
+    bot.get('https://www.tiktok.com/upload/?lang=it')
+    time.sleep(3)
 
 def get_videos():
 
@@ -76,7 +80,7 @@ def get_videos():
                         
                         tmp_name = os.path.join(TMP_DIR, tmp_name)
                         name = os.path.join(TMP_DIR, name)
-                        file = RedDownloader.Download(url = url, output = tmp_name, quality = 1080)
+                        RedDownloader.Download(url = url, output = tmp_name, quality = 1080)
 
                         tmp_name = tmp_name + ".mp4"
 
@@ -87,7 +91,7 @@ def get_videos():
                         else:
                             os.rename(tmp_name, name)
 
-                        upload(name)
+                        upload(name, submission, subreddit, TIKTOK_UPLOAD)
                             
                         os.remove(tmp_name)
                         os.remove(name)
@@ -181,26 +185,47 @@ def check_exists_by_xpath(driver, xpath):
     return True
 
 
-def upload(video_path):
+def upload(video_path: str, submission, subreddit, tiktop_upload):
+    youtube_upload(video_path, subreddit, submission)
+    if tiktok_upload:
+        tiktop_upload(video_path, subreddit, submission)
+
+def youtube_upload(video_path: str, subreddit, submission):
+    # loggin into the channel
+    channel = Channel()
+    channel.login("client_secret.json", "credentials.storage")
+
+    # setting up the video that is going to be uploaded
+    video = LocalVideo(file_path=video_path)
+    # setting snippet
+    video.set_title(submission.title)
+    video.set_description("")
+    video.set_tags([subreddit])
+    video.set_category("subreddit")
+    video.set_default_language("en-US")
+
+    # setting status
+    video.set_embeddable(True)
+    video.set_license("creativeCommon")
+    video.set_privacy_status("public")
+    video.set_public_stats_viewable(True)
+
+    # uploading video and printing the results
+    video = channel.upload_video(video)
+    print(video.id)
+    print(video)
+
+    # liking video
+    video.like()
+
+def tiktok_upload(video_path: str, subreddit, submission):
     while True:
         file_uploader = bot.find_element_by_xpath(
             '//*[@id="main"]/div[2]/div/div[2]/div[2]/div/div/input')
 
         file_uploader.send_keys(video_path)
 
-        caption = bot.find_element_by_xpath(
-            '//*[@id="main"]/div[2]/div/div[2]/div[3]/div[1]/div[1]/div[2]/div/div[1]/div/div/div/div/div/div/span')
-
-        bot.implicitly_wait(10)
-        ActionChains(bot).move_to_element(caption).click(
-            caption).perform()
-        # ActionChains(bot).key_down(Keys.CONTROL).send_keys(
-        #     'v').key_up(Keys.CONTROL).perform()
-
-        with open(r"caption.txt", "r") as f:
-            tags = [line.strip() for line in f]
-
-        for tag in tags:
+        for tag in captions:
             ActionChains(bot).send_keys(tag).perform()
             time.sleep(2)
             ActionChains(bot).send_keys(Keys.RETURN).perform()
@@ -240,5 +265,6 @@ def upload(video_path):
 
         
 create_empty_tables()
-#tiktok_login()
+if TIKTOK_UPLOAD:
+    tiktok_login()
 get_videos()
